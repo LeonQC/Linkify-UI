@@ -2,12 +2,19 @@
 import Layout from "@/components/Layout";
 import RequireAuth from "@/components/RequireAuth";
 import { Card, CardContent } from "@/components/ui/card";
-import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "@/lib/api/axios";
 
 export default function BarcodesPage() {
   const [items, setItems] = useState<any[]>([]);
+  const [page, setPage] = useState(1);
+  const pageSize = 15;
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+
+  const pagedItems = useMemo(
+    () => items.slice((page - 1) * pageSize, page * pageSize),
+    [items, page]
+  );
   useEffect(() => {
     axios.get("/barcodes/").then((res) => setItems(res.data || []));
   }, []);
@@ -20,9 +27,9 @@ export default function BarcodesPage() {
             <p className="text-sm text-gray-500">Home &gt; Barcodes</p>
           </div>
         </section>
-        <main className="p-6 space-y-6 bg-[#f1f1ee]">
-          <div className="flex flex-col gap-6">
-            {items.map((item) => (
+        <main className="p-6 space-y-6 bg-[#f1f1ee] min-h-[calc(100vh-120px)]">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {pagedItems.map((item) => (
               <Card
                 key={item.id}
                 className="bg-[#fafaf8] border border-gray-200 rounded-md"
@@ -44,7 +51,9 @@ export default function BarcodesPage() {
                       </p>
                     </div>
                     <img
-                      src={`https://linkify-images.s3.us-east-2.amazonaws.com/${item.s3_key}`}
+                      src={`${
+                        process.env.NEXT_PUBLIC_API_BASE_URL ?? ""
+                      }/barcodes/${item.barcode_id}/image`}
                       alt="Barcode"
                       width={64}
                       height={64}
@@ -65,6 +74,45 @@ export default function BarcodesPage() {
               </Card>
             ))}
           </div>
+          {/* Pagination */}
+          {items.length > 0 && (
+            <div className="flex justify-center mt-6">
+              <nav className="inline-flex space-x-2 text-sm">
+                <button
+                  className="px-3 py-1 bg-white border rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-default"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  PREV
+                </button>
+                {Array.from({ length: totalPages }).map((_, i) => {
+                  const pageNumber = i + 1;
+                  const isActive = pageNumber === page;
+                  return (
+                    <button
+                      key={pageNumber}
+                      className={
+                        "px-3 py-1 rounded border " +
+                        (isActive
+                          ? "bg-black text-white border-black"
+                          : "bg-white text-gray-800 hover:bg-gray-100")
+                      }
+                      onClick={() => setPage(pageNumber)}
+                    >
+                      {pageNumber}
+                    </button>
+                  );
+                })}
+                <button
+                  className="px-3 py-1 bg-white border rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-default"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                >
+                  NEXT
+                </button>
+              </nav>
+            </div>
+          )}
         </main>
       </Layout>
     </RequireAuth>
